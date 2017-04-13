@@ -1,15 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import re
 from subprocess import call
 from sys import argv
 from sys import exit
 
 if len(argv) != 3:
-    print(argv[1] + " MAC_router XXXX-XX.kismet.netxml")
+    print(argv[1] + " \"BSSID_router\" \"XXXX-XX.kismet.netxml\"")
     exit(0)
 
 
 nothing, macRouter, archivo = argv
+archivo += ".kismet.netxml"
 
 while True:
     fd = open(archivo, 'r')
