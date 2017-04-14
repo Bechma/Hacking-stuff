@@ -24,5 +24,3 @@ while True:
 		except:
 			output_string = "Command not recognized\n"
 			s.send(str.encode(output_string + str(os.getcwd()) + "> "))
-
-
