@@ -7,6 +7,7 @@ if __name__ == "__main__":
 	print("This is not the main!")
 	raise SystemExit
 
+
 class Interface:
 
 	def __init__(self, title="Chat", dimensions="1024x480"):
@@ -25,7 +26,7 @@ class Interface:
 				self.app.setLabel("initial", "Insert a nickname")
 				self.app.setLabelBg("initial", "red")
 				return
-	
+
 			self.ip = self.app.getEntry("IP: ")
 			try:
 				ip_address(self.ip)
@@ -33,23 +34,30 @@ class Interface:
 				self.app.setLabel("initial", "Insert a correct ip")
 				self.app.setLabelBg("initial", "red")
 				return
-	
+
 			self.port = self.app.getEntry("Port: ")
 			try:
 				if len(self.port) == 0:
 					self.port = 9999
-				self.port = int(self.port)
+				else:
+					self.port = int(self.port)
 			except Exception:
 				self.app.errorBox("error", "Unrecognized port, set to default 9999")
 				self.port = 9999
-	
+
 			if self.port <= 0 or self.port > 65535:
 				self.app.setLabel("initial", "Insert a valid port number.")
+				self.app.setLabelBg("initial", "red")
 				return
 			self.correct = True
-		self.app.stop()
-	
-	def first_interface(self):
+			self.app.stop()
+		else:
+			self.app.stop()
+			raise SystemExit
+
+	def start_chat(self):
+		self.correct = False
+
 		self.app = gui(self.title_up, self.dimensions)
 		self.app.setBg("orange")
 		self.app.setFont(16)
@@ -71,29 +79,48 @@ class Interface:
 		self.app.enableEnter(self.__pressing_first)
 		self.app.setFocus("Nick: ")
 		self.app.go()
+		if self.correct:
+			self.waiting_connection()
+		else:
+			self.start_chat()
 
-	def __connecting(self, name):
+	def __connecting(self):
 		try:
 			self.connection.connect((self.ip, self.port))
+			self.correct = True
 			self.app.stop()
-		except:
-			pass
+		except InterruptedError:
+			self.app.errorBox("interrupt", "Connexion interrupted.")
+			self.correct = False
+			self.app.stop()
+		except socket.timeout:
+			self.app.errorBox("timeout", "Connexion is taking too long.")
+			self.correct = False
+			self.app.stop()
+		except ConnectionRefusedError:
+			self.app.errorBox("refused", "Connexion refused.")
+			self.correct = False
+			self.app.stop()
 
 	def waiting_connection(self):
 		if not self.correct:
 			raise SystemExit
+		self.correct = False
 		self.app = gui(self.title_up, self.dimensions)
-		self.app.addLabel("waiting", "The connection is being established")
+		self.app.addLabel("waiting", "Connecting to the server...")
 		self.app.setBg("orange")
 		self.app.setPadding([30, 30])
 
-		self.app.addButton("check", self.__connecting)
-		self.app.enableEnter(self.__connecting)
+		self.app.registerEvent(self.__connecting)
 
 		self.connection = socket.socket()
-		self.connection.bind(('', self.port))
+		self.connection.setblocking(True)
 
 		self.app.go()
+		if self.correct:
+			self.chat_room()
+		else:
+			self.start_chat()
 
 	def __enter_to_send(self, name):
 		if name == "Send" or name == "<Return>":
@@ -111,6 +138,7 @@ class Interface:
 			try:
 				self.__set_messages(self.connection.recv(140).decode("utf-8"))
 			except:
+				print("EXCEPTION RECEIVING")
 				break
 
 	def __set_messages(self, msg):
