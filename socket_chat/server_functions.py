@@ -1,10 +1,13 @@
 import socket
 import threading
+import traceback
 
 
 class ServerChat:
+	all_connections = list()
+	lock = threading.Lock()
+
 	def __init__(self):
-		self.all_connections = []
 		self.server = socket.socket()
 
 		port = 9999
@@ -22,7 +25,8 @@ class ServerChat:
 			try:
 				connection, addr = self.server.accept()
 				connection.setblocking(True)
-				self.all_connections.append(connection)
+				with ServerChat.lock:
+					ServerChat.all_connections.append(connection)
 				t = threading.Thread(target=self.listen_messages, args=(connection,))
 				t.daemon = True
 				t.start()
@@ -33,20 +37,19 @@ class ServerChat:
 	def listen_messages(self, conn):
 		while True:
 			try:
+				print(conn)
 				message = conn.recv(140)
-				print("Recibido: " + message + "\tDecodificado: " + message.decode("utf-8"))
+				print("Recibido: " + str(message) + "\tDecodificado: " + message.decode("utf-8"))
 				if message == "":
-					self.all_connections.remove(conn)
+					with ServerChat.lock:
+						ServerChat.all_connections.remove(conn)
 					break
-				self.server.sendall(message)
-				# self.send_message_to_all(message, conn)
+				with ServerChat.lock:
+					for c in ServerChat.all_connections:
+						c.sendall(message)
 			except:
-				self.all_connections.remove(conn)
+				traceback.print_exc()
+				with ServerChat.lock:
+					ServerChat.all_connections.remove(conn)
 				print("Conexion perdida...")
 				break
-
-	def send_message_to_all(self, message, conn):
-		for i, other in enumerate(self.all_connections):
-			if conn != other:
-				if other.send(message) == 0:
-					self.all_connections.remove(other)
