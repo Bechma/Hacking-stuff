@@ -46,7 +46,8 @@ class ServerChat:
 					break
 				with ServerChat.lock:
 					for c in ServerChat.all_connections:
-						c.sendall(message)
+						if c != conn:
+							c.sendall(message)
 			except:
 				traceback.print_exc()
 				with ServerChat.lock:
