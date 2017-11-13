@@ -15,6 +15,7 @@ class ClientChat:
 		self.message = []
 		self.connection = None
 		self.chat_open = False
+		self.nfile = 0
 
 	def start_chat(self):
 		self.nick = str(input("Insert a nick: "))
@@ -38,6 +39,12 @@ class ClientChat:
 			print("Connecting...")
 			self.connection.connect((self.ip, self.port))
 			self.connection.send(self.nick.encode("utf-8"))
+			handshake = self.connection.recv(140).decode("utf-8")
+			if handshake[0] == Codes.ERROR:
+				print("NICKNAME ALREADY IN USE")
+				self.connection.close()
+				self.start_chat()
+				return
 			self.__chat_room()
 		except InterruptedError:
 			print("Connexion interrupted.")
@@ -63,16 +70,16 @@ class ClientChat:
 			elif command == "all" or command == 'a':
 				print("CHANGE MESSAGE TO SEND TO ALL")
 				ClientChat.DECISION = Codes.MESSAGE_TO_ALL
-			elif command[0:3] == "send":
-				command = command[4:]
+			elif command[0:4] == "send":
+				command = command[5:]
 				if str.isalpha(command):
 					ClientChat.DECISION = Codes.MESSAGE_TO_ONE
 					ClientChat.DESTINY_NICKNAME = command
 					print("CHANGE MESSAGE TO SEND MESSAGES TO " + ClientChat.DESTINY_NICKNAME)
 				else:
 					print("Bad nickname")
-			elif command[0:3] == "file":
-				command = command[4:]
+			elif command[0:4] == "file":
+				command = command[5:]
 				if str.isalpha(command):
 					ClientChat.DECISION = Codes.FILE_TO_ONE
 					ClientChat.DESTINY_NICKNAME = command
@@ -99,7 +106,7 @@ class ClientChat:
 			try:
 				message = self.connection.recv(1024).decode("utf-8")
 				print("Mensaje: " + message)
-				if message[0] == Codes.MESSAGE_TO_ALL or message[0] == Codes.MESSAGE_TO_ALL:
+				if message[0] == Codes.MESSAGE_TO_ALL or message[0] == Codes.MESSAGE_TO_ONE:
 					delimiter = message.index(":")
 					nick = message[1:delimiter]
 					message = message[delimiter+1:]
@@ -107,25 +114,36 @@ class ClientChat:
 				elif message[0] == Codes.ASK_FOR_USERS:
 					print("Those are all users connected right now:" + message[1:])
 				elif message[0] == Codes.FILE_TO_ONE:
-					pass
+					print(message[1:])
+					file = self.connection.recv(2**26).decode("utf-8")
+					create = open("received_%04d" % self.nfile, "x")
+					create.write(file)
+					print(self.connection.recv(1024).decode("utf-8"))
 				elif message[0] == Codes.ERROR:
 					print(message[1:])
 
 			except ValueError:
-				print("Server is sick, sending something wrong :(")
+				print("Server is sick, received something wrong :(")
 			except OSError:
 				print("Connection closed")
 				raise SystemExit
 
-	def send_to_server(self, message, other=None):
+	def send_to_server(self, message):
 		if ClientChat.DECISION == Codes.ASK_FOR_USERS:
 			self.connection.send(Codes.ASK_FOR_USERS.encode("utf-8"))
 		elif ClientChat.DECISION == Codes.MESSAGE_TO_ALL:
 			to_server = Codes.MESSAGE_TO_ALL + self.nick + ":" + message
 			self.connection.send(to_server.encode("utf-8"))
-		elif ClientChat.DECISION == Codes.MESSAGE_TO_ONE and other is not None:
-			to_server = Codes.MESSAGE_TO_ONE + other + "|" + self.nick + ":" + message
+		elif ClientChat.DECISION == Codes.MESSAGE_TO_ONE:
+			to_server = Codes.MESSAGE_TO_ONE + ClientChat.DESTINY_NICKNAME + "|" + self.nick + ":" + message
 			self.connection.send(to_server.encode("utf-8"))
+		elif ClientChat.DECISION == Codes.FILE_TO_ONE:
+			try:
+				message = open(message, "r").read()
+				to_server = Codes.FILE_TO_ONE + ClientChat.DESTINY_NICKNAME + "|" + message
+				self.connection.sendall(to_server.encode("utf-8"))
+			except IOError:
+				print("FILE NOT VALID")
 
 	def __chat_room(self):
 		print("Connection established, congratz! You can start chatting.")

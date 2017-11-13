@@ -6,8 +6,8 @@ class Interface(tk.Frame):
 	locked = Lock()
 
 	def __init__(self, root, client):
-
 		tk.Frame.__init__(self, root)
+
 		self.canvas = tk.Canvas(root, borderwidth=0, background="#ffffff")
 		self.frame = tk.Frame(self.canvas, background="#ffffff")
 		self.vsb = tk.Scrollbar(root, orient="vertical", command=self.canvas.yview)
@@ -29,15 +29,13 @@ class Interface(tk.Frame):
 		self.row_control = 0
 
 	def populate(self, nick, message):
-		'''Put in some fake data'''
 		with Interface.locked:
-			tk.Label(self.frame, text="%s" % nick, width=6, borderwidth="1", relief="solid").\
+			tk.Label(self.frame, text="%s" % nick, width=len(nick), borderwidth="1", relief="solid").\
 				grid(row=self.row_control, column=0)
 			tk.Label(self.frame, text=message).grid(row=self.row_control, column=1)
 			self.row_control += 1
 
 	def __configure_frame(self, event):
-		'''Reset the scroll region to encompass the inner frame'''
 		self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
 	def __listening(self, key):
@@ -45,9 +43,3 @@ class Interface(tk.Frame):
 		if message != "":
 			self.entry.delete(0, "end")
 			self.client.send_to_server(message)
-
-
-if __name__ == "__main__":
-	root = tk.Tk()
-	Interface(root).pack(side="top", fill="both", expand=True)
-	root.mainloop()
