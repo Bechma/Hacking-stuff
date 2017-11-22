@@ -1,6 +1,5 @@
 import socket
 import threading
-import traceback
 from codes import Codes
 
 

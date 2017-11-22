@@ -3,7 +3,6 @@ import threading
 import socket
 from client_chat_room import *
 from codes import Codes
-import traceback
 
 
 class ClientChat:
@@ -19,7 +18,7 @@ class ClientChat:
 
 	def start_chat(self):
 		self.nick = str(input("Insert a nick: "))
-		while self.nick is None or len(self.nick) == 0 or not str.isalpha(self.nick):
+		while self.nick is None or len(self.nick) == 0 or not str.isalnum(self.nick):
 			self.nick = str(input("Insert an alphanumeric nickname: "))
 
 		while True:
@@ -72,7 +71,7 @@ class ClientChat:
 				ClientChat.DECISION = Codes.MESSAGE_TO_ALL
 			elif command[0:4] == "send":
 				command = command[5:]
-				if str.isalpha(command):
+				if str.isalnum(command):
 					ClientChat.DECISION = Codes.MESSAGE_TO_ONE
 					ClientChat.DESTINY_NICKNAME = command
 					print("CHANGE MESSAGE TO SEND MESSAGES TO " + ClientChat.DESTINY_NICKNAME)
@@ -80,7 +79,7 @@ class ClientChat:
 					print("Bad nickname")
 			elif command[0:4] == "file":
 				command = command[5:]
-				if str.isalpha(command):
+				if str.isalnum(command):
 					ClientChat.DECISION = Codes.FILE_TO_ONE
 					ClientChat.DESTINY_NICKNAME = command
 					print("CHANGE MESSAGE TO SEND FILE TO " + ClientChat.DESTINY_NICKNAME)
@@ -94,18 +93,18 @@ class ClientChat:
 		self.chat_open = True
 		try:
 			master = tk.Tk()
+			master.title(self.nick)
 			self.interface = Interface(master, self)
 			self.interface.pack(side="top", fill="both", expand=True)
 			master.mainloop()
 		except:
 			print("Chat closed")
-			self.chat_open = False
+		self.chat_open = False
 
 	def __receive_from_server(self):
 		while True:
 			try:
 				message = self.connection.recv(1024).decode("utf-8")
-				print("Mensaje: " + message)
 				if message[0] == Codes.MESSAGE_TO_ALL or message[0] == Codes.MESSAGE_TO_ONE:
 					delimiter = message.index(":")
 					nick = message[1:delimiter]
@@ -116,8 +115,9 @@ class ClientChat:
 				elif message[0] == Codes.FILE_TO_ONE:
 					print(message[1:])
 					file = self.connection.recv(2**26).decode("utf-8")
-					create = open("received_%04d" % self.nfile, "x")
-					create.write(file)
+					with open("received_%04d.txt" % self.nfile, "w+") as create:
+						self.nfile += 1
+						create.write(file)
 					print(self.connection.recv(1024).decode("utf-8"))
 				elif message[0] == Codes.ERROR:
 					print(message[1:])
@@ -139,9 +139,10 @@ class ClientChat:
 			self.connection.send(to_server.encode("utf-8"))
 		elif ClientChat.DECISION == Codes.FILE_TO_ONE:
 			try:
-				message = open(message, "r").read()
-				to_server = Codes.FILE_TO_ONE + ClientChat.DESTINY_NICKNAME + "|" + message
-				self.connection.sendall(to_server.encode("utf-8"))
+				with open(message, "r") as mes:
+					message = mes.read()
+					to_server = Codes.FILE_TO_ONE + ClientChat.DESTINY_NICKNAME + "|" + message
+					self.connection.sendall(to_server.encode("utf-8"))
 			except IOError:
 				print("FILE NOT VALID")
 
